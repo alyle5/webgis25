@@ -6,18 +6,29 @@
 <title>Lab 2 for Web GIS</title>
 <style>
   html, body { height: 100%; margin: 0; padding: 0; }
-  #map_canvas { height: 50vh; width: 50%; }
+  .map-container { height: 40vh; width: 45%; margin: 10px; display: inline-block; vertical-align: top; border: 2px solid #444; }
+  .map-title { text-align: center; font-weight: bold; margin-bottom: 5px; }
 </style>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBikcbC74mMhonehrl9fDlaHiwDVUA0nek"></script>
 <script>
 function initialize() {
-  var latlng = new google.maps.LatLng(35.306840, -80.732000);
-  var myOptions = {
-    zoom: 16,
-    center: latlng,
-    mapTypeId: google.maps.MapTypeId.HYBRID
-  };
-  new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+  
+  var locations = [
+    {lat: 35.306840, lng: -80.732000, title: "UNC Charlotte"},
+    {lat: 34.49421782716671, lng: 36.90337155814695, title: "C"},
+    {lat: 40.94064496302555, lng:-74.1202597321516, title: "Raleigh, NC"},
+    {lat: 33.85876905090725, lng: -77.99392466234693, title: "Greensboro, NC"},
+    {lat: 35.82644559223859, lng: -78.65592387998367, title: "Wilmington, NC"}
+  ];
+
+ 
+  for (let i = 0; i < locations.length; i++) {
+    new google.maps.Map(document.getElementById("map_canvas" + (i+1)), {
+      zoom: 12,
+      center: new google.maps.LatLng(locations[i].lat, locations[i].lng),
+      mapTypeId: google.maps.MapTypeId.HYBRID
+    });
+  }
 }
 </script>
 </head>
@@ -45,7 +56,32 @@ function initialize() {
     document.write(x3);
   </script>
 
-  <h3>Interactive Map (Google Maps)</h3>
-  <div id="map_canvas"></div>
+  <h3>Interactive Maps (Google Maps)</h3>
+
+  <div class="map-container">
+    <div class="map-title">UNC Charlotte</div>
+    <div id="map_canvas1" style="height:100%;"></div>
+  </div>
+
+  <div class="map-container">
+    <div class="map-title">An interesting Find!</div>
+    <div id="map_canvas2" style="height:100%;"></div>
+  </div>
+
+  <div class="map-container">
+    <div class="map-title">My Fathers Childhood Neighborhood!</div>
+    <div id="map_canvas3" style="height:100%;"></div>
+  </div>
+
+  <div class="map-container">
+    <div class="map-title">My Childhood vacation spot!</div>
+    <div id="map_canvas4" style="height:100%;"></div>
+  </div>
+
+  <div class="map-container">
+    <div class="map-title">My Childhood Neighborhood!</div>
+    <div id="map_canvas5" style="height:100%;"></div>
+  </div>
 </body>
 </html>
+
