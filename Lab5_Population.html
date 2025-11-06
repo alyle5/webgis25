@@ -59,13 +59,14 @@
         attribution: 'GeoServer WMS topp:states'
       }).addTo(map);
 
-      // Population Density Layer (NASA SEDAC WMS - reliable public source)
-      const populationLayer = L.tileLayer.wms('https://sedac.ciesin.columbia.edu/geoserver/wms', {
-        layers: 'gpw-v4:gpw-v4-population-density_2020',
-        format: 'image/png',
-        transparent: true,
-        version: '1.1.1',
-        attribution: 'NASA SEDAC GPWv4 Population Density (2020)'
+     
+  
+
+  
+       const populationLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Population_Density/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        opacity: 0.7,
+        attribution: 'Population data &copy; Esri'
       });
 
       // Basemap switcher
@@ -102,4 +103,3 @@
   </script>
 </body>
 </html>
-
