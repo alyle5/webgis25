@@ -2,41 +2,119 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>OpenLayers — OSM / ESRI Imagery / WMS</title>
-
-  <!-- OpenLayers CSS -->
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OpenLayers: OSM + ESRI Imagery + WMS (topp:states)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.4.0/ol.css">
-
   <style>
-    html, body { height: 100%; margin: 0; }
-    .map-container { height: 100vh; width: 100%; position: relative; }
-    #map { width: 100%; height: 100%; }
-    .controls {
-      position: absolute;
-      left: 12px;
-      top: 12px;
-      z-index: 1000;
-      background: rgba(255,255,255,0.95);
-      padding: 10px 12px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      font-size: 14px;
-    }
-    .controls label { margin-right: 8px; cursor: pointer; }
-    .attribution-note {
-      position: absolute;
-      right: 12px;
-      bottom: 12px;
-      z-index: 1000;
-      background: rgba(255,255,255,0.9);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    .app {display:flex;flex-direction:column;height:100%}
+    .topbar{padding:10px;background:#ffffffcc;border-bottom:1px solid #ddd;display:flex;gap:18px;align-items:center}
+    .map {flex:1}
+    #map {width:100%;height:100%}
+    .controls {display:flex;gap:12px;align-items:center}
+    .controls label{cursor:pointer}
+    .credits{font-size:12px;color:#444;margin-left:auto}
   </style>
 </head>
 <body>
+  <div class="app">
+    <div class="topbar">
+      <div class="controls">
+        <div>
+          <strong>Basemap:</strong>
+          <label><input type="radio" name="basemap" value="osm" checked> OSM (Street)</label>
+          <label><input type="radio" name="basemap" value="esri"> ESRI Imagery</label>
+        </div>
+        <div style="margin-left:12px">
+          <label><input type="checkbox" id="wmsToggle" checked> Show WMS: topp:states</label>
+        </div>
+      </div>
+      <div class="credits">Centered on continental US • Zoom default 4</div>
+    </div>
 
-<div class="map-con
+    <div class="map">
+      <div id="map"></div>
+    </div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/ol@7.4.0/dist/ol.js"></script>
+  <script>
+    // Create two base layers (only one visible at a time)
+    const osmLayer = new ol.layer.Tile({
+      source: new ol.source.OSM(),
+      visible: true,
+      title: 'osm'
+    });
+
+    const esriImagery = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        // ESRI World Imagery tile service
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attributions: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+      }),
+      visible: false,
+      title: 'esri'
+    });
+
+    // WMS overlay (Image layer) using the Geoserver hosted at ahocevar.com
+    const wmsLayer = new ol.layer.Image({
+      source: new ol.source.ImageWMS({
+        url: 'https://ahocevar.com/geoserver/wms',
+        params: {
+          'LAYERS': 'topp:states',
+          'FORMAT': 'image/png',
+          'VERSION': '1.1.1'
+        },
+        ratio: 1,
+        serverType: 'geoserver'
+      }),
+      visible: true,
+      opacity: 0.7,
+      title: 'wms_topp_states'
+    });
+
+    // Create the map view centered on continental US (lon,lat -> EPSG:3857)
+    const view = new ol.View({
+      center: ol.proj.fromLonLat([-98.5795, 39.8283]), // geographic center of continental US
+      zoom: 4,
+      minZoom: 2,
+      maxZoom: 19
+    });
+
+    // Map
+    const map = new ol.Map({
+      target: 'map',
+      layers: [osmLayer, esriImagery, wmsLayer],
+      view: view,
+      controls: ol.control.defaults({attribution: true, rotate: true, zoom: true})
+    });
+
+    // UI interactions: basemap radio buttons
+    const basemapRadios = document.querySelectorAll('input[name="basemap"]');
+    basemapRadios.forEach(radio => {
+      radio.addEventListener('change', function(e){
+        const val = e.target.value;
+        osmLayer.setVisible(val === 'osm');
+        esriImagery.setVisible(val === 'esri');
+      });
+    });
+
+    // WMS toggle checkbox
+    const wmsToggle = document.getElementById('wmsToggle');
+    wmsToggle.addEventListener('change', function(e){
+      wmsLayer.setVisible(e.target.checked);
+    });
+
+    // helper: if map's base layers are changed externally, keep radios in sync (optional)
+    function syncRadiosToVisibleBase(){
+      const visibleBase = osmLayer.getVisible() ? 'osm' : (esriImagery.getVisible() ? 'esri' : '');
+      basemapRadios.forEach(r => r.checked = (r.value === visibleBase));
+    }
+
+    // expose for debugging in console
+    window.__olApp = {map, view, layers: {osmLayer, esriImagery, wmsLayer}};
+
+    // If you see CORS or mixed-content warnings, run a simple local server (python -m http.server)
+  </script>
+</body>
+</html>
