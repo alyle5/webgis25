@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaflet Map with OSM, ESRI, WMS, and Population Layer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { width: 100%; height: 100vh; }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 1000;
+      font-family: Arial, sans-serif;
+    }
+    .controls label { display: block; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <strong>Basemap:</strong>
+    <label><input type="radio" name="basemap" value="osm" checked> OpenStreetMap</label>
+    <label><input type="radio" name="basemap" value="esri"> ESRI Imagery</label>
+    <hr>
+    <label><input type="checkbox" id="toggleWMS" checked> Show WMS Layer (topp:states)</label>
+    <label><input type="checkbox" id="togglePop"> Show Population Density Layer</label>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const map = L.map('map').setView([37.8, -96], 4);
+
+      // Base layers
+      const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+      });
+
+      // WMS Layer (States)
+      const wmsLayer = L.tileLayer.wms('https://ahocevar.com/geoserver/wms', {
+        layers: 'topp:states',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.1',
+        attribution: 'GeoServer WMS topp:states'
+      }).addTo(map);
+
+      // Population Density Layer (NASA SEDAC WMS - reliable public source)
+      const populationLayer = L.tileLayer.wms('https://sedac.ciesin.columbia.edu/geoserver/wms', {
+        layers: 'gpw-v4:gpw-v4-population-density_2020',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.1',
+        attribution: 'NASA SEDAC GPWv4 Population Density (2020)'
+      });
+
+      // Basemap switcher
+      document.querySelectorAll('input[name="basemap"]').forEach(radio => {
+        radio.addEventListener('change', e => {
+          if (e.target.value === 'osm') {
+            if (!map.hasLayer(osm)) map.addLayer(osm);
+            if (map.hasLayer(esri)) map.removeLayer(esri);
+          } else {
+            if (!map.hasLayer(esri)) map.addLayer(esri);
+            if (map.hasLayer(osm)) map.removeLayer(osm);
+          }
+        });
+      });
+
+      // WMS toggle
+      document.getElementById('toggleWMS').addEventListener('change', e => {
+        if (e.target.checked) {
+          map.addLayer(wmsLayer);
+        } else {
+          map.removeLayer(wmsLayer);
+        }
+      });
+
+      // Population layer toggle
+      document.getElementById('togglePop').addEventListener('change', e => {
+        if (e.target.checked) {
+          map.addLayer(populationLayer);
+        } else {
+          map.removeLayer(populationLayer);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+
