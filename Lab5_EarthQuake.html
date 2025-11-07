@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leaflet Map with OSM, ESRI, WMS, and Population Layer</title>
+  <title>Leaflet Map with OSM, ESRI, WMS, and Earthquake Layer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body { height: 100%; margin: 0; }
@@ -29,7 +29,7 @@
     <label><input type="radio" name="basemap" value="esri"> ESRI Imagery</label>
     <hr>
     <label><input type="checkbox" id="toggleWMS" checked> Show WMS Layer (topp:states)</label>
-    <label><input type="checkbox" id="togglePop"> Show Population Density Layer</label>
+    <label><input type="checkbox" id="toggleQuakes"> Show Earthquake Data</label>
   </div>
 
   <div id="map"></div>
@@ -59,24 +59,25 @@
         attribution: 'GeoServer WMS topp:states'
       }).addTo(map);
 
-
-  
-      // Option 2: World Population Density
-        const populationLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Population_Density/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        opacity: 0.7,
-        attribution: 'Population data &copy; Esri'
-      });
-      */
-
-      /*
-      // Option 3: Humanitarian Data Exchange Population Layer
-      const populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        opacity: 0.6,
-        attribution: 'Population data &copy; Humanitarian OSM Team'
-      });
-      */
+      // Earthquake Layer (USGS GeoJSON, public endpoint)
+      const quakeLayer = L.layerGroup();
+      fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson')
+        .then(response => response.json())
+        .then(data => {
+          L.geoJSON(data, {
+            pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+              radius: Math.max(feature.properties.mag * 2, 2),
+              fillColor: 'red',
+              color: '#800000',
+              weight: 1,
+              opacity: 1,
+              fillOpacity: 0.6
+            }),
+            onEachFeature: (feature, layer) => {
+              layer.bindPopup(`<strong>Magnitude:</strong> ${feature.properties.mag}<br><strong>Place:</strong> ${feature.properties.place}`);
+            }
+          }).addTo(quakeLayer);
+        });
 
       // Basemap switcher
       document.querySelectorAll('input[name="basemap"]').forEach(radio => {
@@ -100,15 +101,17 @@
         }
       });
 
-      // Population layer toggle
-      document.getElementById('togglePop').addEventListener('change', e => {
+      // Earthquake layer toggle
+      document.getElementById('toggleQuakes').addEventListener('change', e => {
         if (e.target.checked) {
-          map.addLayer(populationLayer);
+          map.addLayer(quakeLayer);
         } else {
-          map.removeLayer(populationLayer);
+          map.removeLayer(quakeLayer);
         }
       });
     });
   </script>
 </body>
 </html>
+
+
