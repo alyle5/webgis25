@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenLayers Basemap & WMS App</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Set font and ensure full viewport coverage */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-color: #f7f9fb;
+        }
+        /* Style for the map container */
+        #map {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%; /* Occupy remaining space */
+        }
+        /* OpenLayers CSS */
+        @import url('https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css');
+        
+        /* Custom styles for control panel */
+        .control-panel {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+    <!-- OpenLayers JS library -->
+    <!-- This script provides the global 'ol' object, which we will now use -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+</head>
+<body>
+
+    <header class="p-4 bg-blue-600 text-white shadow-lg">
+        <h1 class="text-xl font-bold">WMS & Basemap Switcher</h1>
+    </header>
+
+    <!-- Control Panel -->
+    <div class="control-panel p-4 bg-white border-b border-gray-200 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-8">
+        
+        <!-- Basemap Switcher -->
+        <div class="flex items-center space-x-4">
+            <span class="font-semibold text-gray-700">Basemap:</span>
+            <div class="flex space-x-4">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="basemap" value="osm" checked class="form-radio text-blue-600 h-4 w-4 transition duration-150 ease-in-out">
+                    <span class="ml-2 text-gray-700">OpenStreetMap</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="basemap" value="esri-imagery" class="form-radio text-blue-600 h-4 w-4 transition duration-150 ease-in-out">
+                    <span class="ml-2 text-gray-700">ESRI Imagery</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- WMS Layer Toggle -->
+        <div class="flex items-center">
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="wms-toggle" class="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out">
+                <span class="ml-2 text-gray-700 font-semibold">GeoServer States (WMS)</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Removed type="module" and using the global 'ol' object instead -->
+    <script>
+        // --- 1. Define Layers ---
+
+        // Basemap 1: OpenStreetMap (initially visible)
+        // Accessing components via the global 'ol' object
+        const osmBasemap = new ol.layer.Tile({
+            title: 'OpenStreetMap',
+            type: 'base',
+            source: new ol.source.OSM(),
+            visible: true,
+        });
+
+        // Basemap 2: ESRI World Imagery (initially hidden)
+        const esriImageryBasemap = new ol.layer.Tile({
+            title: 'ESRI Imagery',
+            type: 'base',
+            source: new ol.source.XYZ({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attributions: 'Source: Esri, Maxar, GeoEye, Earthstar Geographics and the GIS User Community',
+                maxZoom: 19
+            }),
+            visible: false,
+        });
+
+        // WMS Layer: topp:states (initially hidden)
+        const wmsLayer = new ol.layer.Image({
+            title: 'GeoServer States WMS',
+            source: new ol.source.ImageWMS({
+                url: 'https://ahocevar.com/geoserver/wms',
+                params: {
+                    'LAYERS': 'topp:states',
+                    'FORMAT': 'image/png', // Use PNG for transparency
+                    'VERSION': '1.1.1'
+                },
+                // The layer is requested in the map's default projection (EPSG:3857)
+                serverType: 'geoserver'
+            }),
+            // Start the WMS layer in the off state
+            visible: false,
+            // Add slight opacity to see basemap underneath
+            opacity: 0.6
+        });
+
+
+        // --- 2. Initialize Map ---
+
+        // Coordinates for centering on the continental US
+        const usCenterLonLat = [-98.5795, 39.8283]; // Geographic coordinates
+        // Accessing projection utility via the global 'ol' object
+        const usCenterWebMercator = ol.proj.fromLonLat(usCenterLonLat);
+
+        const map = new ol.Map({
+            target: 'map',
+            layers: [
+                osmBasemap,
+                esriImageryBasemap,
+                wmsLayer // WMS layer on top
+            ],
+            view: new ol.View({
+                center: usCenterWebMercator,
+                zoom: 4, // Appropriate zoom level for continental US
+                minZoom: 2,
+                maxZoom: 18
+            }),
+        });
+        
+        // Log setup status for debugging
+        console.log("OpenLayers Map initialized. Basemaps and WMS layer configured.");
+
+
+        // --- 3. Interaction Logic ---
+        
+        // Handle Basemap Switching (Radio Buttons)
+        document.querySelectorAll('input[name="basemap"]').forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                const selectedBasemap = event.target.value;
+                console.log(`Switching basemap to: ${selectedBasemap}`);
+
+                // Check which radio button is selected and update layer visibility
+                if (selectedBasemap === 'osm') {
+                    osmBasemap.setVisible(true);
+                    esriImageryBasemap.setVisible(false);
+                } else if (selectedBasemap === 'esri-imagery') {
+                    osmBasemap.setVisible(false);
+                    esriImageryBasemap.setVisible(true);
+                }
+            });
+        });
+
+        // Handle WMS Layer Toggle (Checkbox)
+        const wmsToggle = document.getElementById('wms-toggle');
+        wmsToggle.addEventListener('change', (event) => {
+            const isVisible = event.target.checked;
+            wmsLayer.setVisible(isVisible);
+            console.log(`WMS Layer visibility set to: ${isVisible}`);
+        });
+
+    </script>
+</body>
+</html>
