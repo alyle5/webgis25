@@ -59,15 +59,24 @@
         attribution: 'GeoServer WMS topp:states'
       }).addTo(map);
 
-     
-  
 
   
-       const populationLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Population_Density/MapServer/tile/{z}/{y}/{x}', {
+      // Option 2: World Population Density
+        const populationLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Population_Density/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
         opacity: 0.7,
         attribution: 'Population data &copy; Esri'
       });
+      */
+
+      /*
+      // Option 3: Humanitarian Data Exchange Population Layer
+      const populationLayer = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        opacity: 0.6,
+        attribution: 'Population data &copy; Humanitarian OSM Team'
+      });
+      */
 
       // Basemap switcher
       document.querySelectorAll('input[name="basemap"]').forEach(radio => {
