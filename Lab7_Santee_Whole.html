@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEF Web Map</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map { width: 100%; height: 100%; }
+
+        .layer-switcher {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        .layer-switcher h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layer-switcher">
+    <h3>Layers</h3>
+    <label><input type="checkbox" id="boundary" checked> SEF Boundary (100ft)</label><br>
+    <label><input type="checkbox" id="roads" checked> Roads</label><br>
+    <label><input type="checkbox" id="streams" checked> Streams</label><br>
+</div>
+
+<div id="map"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
+<script>
+
+// ========== MAP INITIALIZATION ==========
+const map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.OSM()
+        })
+    ],
+    view: new ol.View({
+        center: ol.proj.fromLonLat([-80.0, 35.0]), 
+        zoom: 12
+    })
+});
+
+
+// ========== FACTORY FOR GEOSERVER WMS LAYERS ==========
+function makeLayer(layerName) {
+    return new ol.layer.Tile({
+        source: new ol.source.TileWMS({
+            url: 'http://3.236.80.74:8080/geoserver/wms',
+            params: {
+                'LAYERS': layerName,
+                'TILED': true,
+                'TRANSPARENT': true,
+                'FORMAT': 'image/png'
+            },
+            serverType: 'geoserver'
+        }),
+        visible: true
+    });
+}
+
+
+// ========== CREATE YOUR THREE LAYERS ==========
+const layer_boundary = makeLayer('alyle5:sef_boundary_100ft');
+const layer_roads    = makeLayer('alyle5:sef_roads');
+const layer_streams  = makeLayer('alyle5:sef_streams');
+
+
+// Add layers to map
+map.addLayer(layer_boundary);
+map.addLayer(layer_roads);
+map.addLayer(layer_streams);
+
+
+// ========== LAYER SWITCHING ==========
+document.getElementById("boundary").addEventListener("change", function() {
+    layer_boundary.setVisible(this.checked);
+});
+document.getElementById("roads").addEventListener("change", function() {
+    layer_roads.setVisible(this.checked);
+});
+document.getElementById("streams").addEventListener("change", function() {
+    layer_streams.setVisible(this.checked);
+});
+
+</script>
+
+</body>
+</html>
