@@ -6,24 +6,35 @@
     <title>SEF Web Map</title>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
+
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; }
+        html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
         #map { width: 100%; height: 100%; }
 
+        /* Layer Switcher */
         .layer-switcher {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: sans-serif;
-            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+            top: 15px;
+            left: 15px;
+            background: #ffffff;
+            padding: 12px 16px;
+            border-radius: 10px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
             z-index: 1000;
+            width: 180px;
         }
+
         .layer-switcher h3 {
-            margin: 0 0 8px 0;
-            font-size: 16px;
+            margin: 0 0 10px 0;
+            font-size: 17px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 6px;
+        }
+
+        .layer-switcher label {
+            display: block;
+            margin: 6px 0;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -31,10 +42,10 @@
 <body>
 
 <div class="layer-switcher">
-    <h3>Layers</h3>
-    <label><input type="checkbox" id="boundary" checked> SEF Boundary (100ft)</label><br>
-    <label><input type="checkbox" id="roads" checked> Roads</label><br>
-    <label><input type="checkbox" id="streams" checked> Streams</label><br>
+    <h3>Map Layers</h3>
+    <label><input type="checkbox" id="boundary" checked> SEF Boundary</label>
+    <label><input type="checkbox" id="roads" checked> Roads</label>
+    <label><input type="checkbox" id="streams" checked> Streams</label>
 </div>
 
 <div id="map"></div>
@@ -42,31 +53,28 @@
 <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 <script>
 
-// ========== MAP INITIALIZATION ==========
+// ================= BASE MAP =================
 const map = new ol.Map({
     target: 'map',
     layers: [
-        new ol.layer.Tile({
-            source: new ol.source.OSM()
-        })
+        new ol.layer.Tile({ source: new ol.source.OSM() })
     ],
     view: new ol.View({
-        center: ol.proj.fromLonLat([-80.0, 35.0]), 
-        zoom: 12
+        center: ol.proj.fromLonLat([-80.0, 35.0]), // Temporary until zoom-to-layer runs
+        zoom: 10
     })
 });
 
-
-// ========== FACTORY FOR GEOSERVER WMS LAYERS ==========
-function makeLayer(layerName) {
+// ================= WMS LAYER FACTORY =================
+function createLayer(layerName) {
     return new ol.layer.Tile({
         source: new ol.source.TileWMS({
             url: 'http://3.236.80.74:8080/geoserver/wms',
             params: {
-                'LAYERS': layerName,
-                'TILED': true,
-                'TRANSPARENT': true,
-                'FORMAT': 'image/png'
+                LAYERS: layerName,
+                TILED: true,
+                TRANSPARENT: true,
+                FORMAT: 'image/png'
             },
             serverType: 'geoserver'
         }),
@@ -74,29 +82,43 @@ function makeLayer(layerName) {
     });
 }
 
+// ================= CREATE LAYERS =================
+const boundaryLayer = createLayer('alyle5:sef_boundary_100ft');
+const roadsLayer    = createLayer('alyle5:sef_roads');
+const streamsLayer  = createLayer('alyle5:sef_streams');
 
-// ========== CREATE YOUR THREE LAYERS ==========
-const layer_boundary = makeLayer('alyle5:sef_boundary_100ft');
-const layer_roads    = makeLayer('alyle5:sef_roads');
-const layer_streams  = makeLayer('alyle5:sef_streams');
-
-
-// Add layers to map
-map.addLayer(layer_boundary);
-map.addLayer(layer_roads);
-map.addLayer(layer_streams);
+map.addLayer(boundaryLayer);
+map.addLayer(roadsLayer);
+map.addLayer(streamsLayer);
 
 
-// ========== LAYER SWITCHING ==========
-document.getElementById("boundary").addEventListener("change", function() {
-    layer_boundary.setVisible(this.checked);
-});
-document.getElementById("roads").addEventListener("change", function() {
-    layer_roads.setVisible(this.checked);
-});
-document.getElementById("streams").addEventListener("change", function() {
-    layer_streams.setVisible(this.checked);
-});
+// ================= LAYER SWITCHER EVENTS =================
+document.getElementById("boundary").addEventListener("change", e => boundaryLayer.setVisible(e.target.checked));
+document.getElementById("roads").addEventListener("change", e => roadsLayer.setVisible(e.target.checked));
+document.getElementById("streams").addEventListener("change", e => streamsLayer.setVisible(e.target.checked));
+
+
+// ================= AUTO-ZOOM TO LAYER =================
+// Use GetCapabilities to fetch layer bounding box
+fetch("http://3.236.80.74:8080/geoserver/alyle5/wms?service=WMS&request=GetCapabilities")
+    .then(response => response.text())
+    .then(text => {
+        const parser = new ol.format.WMSCapabilities();
+        const result = parser.read(text);
+
+        // Find layer metadata
+        const layers = result.Capability.Layer.Layer;
+        const layerInfo = layers.find(l => l.Name === "alyle5:sef_boundary_100ft");
+
+        if (layerInfo && layerInfo.BoundingBox) {
+            const bbox = layerInfo.BoundingBox[0].extent;
+
+            // Transform BBOX to web mercator
+            const transformed = ol.proj.transformExtent(bbox, 'EPSG:4326', 'EPSG:3857');
+
+            map.getView().fit(transformed, { duration: 900, padding: [50, 50, 50, 50] });
+        }
+    });
 
 </script>
 
