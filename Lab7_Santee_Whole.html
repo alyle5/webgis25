@@ -42,8 +42,8 @@
 <body>
 
 <div class="layer-switcher">
-    <h3>Map Layers</h3>
-    <label><input type="checkbox" id="boundary" checked> SEF Boundary</label>
+    <h3>Layers</h3>
+    <label><input type="checkbox" id="boundary" checked> SEF Boundary (100ft)</label>
     <label><input type="checkbox" id="roads" checked> Roads</label>
     <label><input type="checkbox" id="streams" checked> Streams</label>
 </div>
@@ -53,28 +53,28 @@
 <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 <script>
 
-// ================= BASE MAP =================
+// ========== MAP INITIALIZATION ==========
 const map = new ol.Map({
     target: 'map',
     layers: [
         new ol.layer.Tile({ source: new ol.source.OSM() })
     ],
     view: new ol.View({
-        center: ol.proj.fromLonLat([-80.0, 35.0]), // Temporary until zoom-to-layer runs
+        center: ol.proj.fromLonLat([-80, 35]), // temporary, replaced after zoom
         zoom: 10
     })
 });
 
-// ================= WMS LAYER FACTORY =================
-function createLayer(layerName) {
+// ========== WMS LAYER FACTORY ==========
+function createWMS(layerName) {
     return new ol.layer.Tile({
         source: new ol.source.TileWMS({
             url: 'http://3.236.80.74:8080/geoserver/wms',
             params: {
                 LAYERS: layerName,
+                FORMAT: 'image/png',
                 TILED: true,
-                TRANSPARENT: true,
-                FORMAT: 'image/png'
+                TRANSPARENT: true
             },
             serverType: 'geoserver'
         }),
@@ -82,43 +82,54 @@ function createLayer(layerName) {
     });
 }
 
-// ================= CREATE LAYERS =================
-const boundaryLayer = createLayer('alyle5:sef_boundary_100ft');
-const roadsLayer    = createLayer('alyle5:sef_roads');
-const streamsLayer  = createLayer('alyle5:sef_streams');
+// ========== CREATE YOUR LAYERS ==========
+const boundaryLayer = createWMS('alyle5:sef_boundary_100ft');
+const roadsLayer    = createWMS('alyle5:sef_roads');
+const streamsLayer  = createWMS('alyle5:sef_streams');
 
 map.addLayer(boundaryLayer);
 map.addLayer(roadsLayer);
 map.addLayer(streamsLayer);
 
+// ========== LAYER TOGGLES ==========
+document.getElementById("boundary").onchange = e => boundaryLayer.setVisible(e.target.checked);
+document.getElementById("roads").onchange    = e => roadsLayer.setVisible(e.target.checked);
+document.getElementById("streams").onchange  = e => streamsLayer.setVisible(e.target.checked);
 
-// ================= LAYER SWITCHER EVENTS =================
-document.getElementById("boundary").addEventListener("change", e => boundaryLayer.setVisible(e.target.checked));
-document.getElementById("roads").addEventListener("change", e => roadsLayer.setVisible(e.target.checked));
-document.getElementById("streams").addEventListener("change", e => streamsLayer.setVisible(e.target.checked));
 
+// ======================================================================
+// AUTO-ZOOM TO LAYER EXTENT (reads BBOX from GeoServer GetCapabilities)
+// ======================================================================
 
-// ================= AUTO-ZOOM TO LAYER =================
-// Use GetCapabilities to fetch layer bounding box
+// Use proxy-safe XML parsing (no CORS issues)
 fetch("http://3.236.80.74:8080/geoserver/alyle5/wms?service=WMS&request=GetCapabilities")
-    .then(response => response.text())
-    .then(text => {
+    .then(res => res.text())
+    .then(xmlText => {
         const parser = new ol.format.WMSCapabilities();
-        const result = parser.read(text);
+        const capabilities = parser.read(xmlText);
 
-        // Find layer metadata
-        const layers = result.Capability.Layer.Layer;
+        // Find your layer's metadata
+        const layers = capabilities.Capability.Layer.Layer;
         const layerInfo = layers.find(l => l.Name === "alyle5:sef_boundary_100ft");
 
-        if (layerInfo && layerInfo.BoundingBox) {
-            const bbox = layerInfo.BoundingBox[0].extent;
-
-            // Transform BBOX to web mercator
-            const transformed = ol.proj.transformExtent(bbox, 'EPSG:4326', 'EPSG:3857');
-
-            map.getView().fit(transformed, { duration: 900, padding: [50, 50, 50, 50] });
+        if (!layerInfo || !layerInfo.BoundingBox) {
+            console.error("Could not read bounding box for layer.");
+            return;
         }
-    });
+
+        // Extract BBOX
+        const bbox = layerInfo.BoundingBox[0].extent;
+
+        // Convert to Web Mercator
+        const extent3857 = ol.proj.transformExtent(bbox, 'EPSG:4326', 'EPSG:3857');
+
+        // Fit map to extent
+        map.getView().fit(extent3857, {
+            duration: 1000,
+            padding: [50, 50, 50, 50]
+        });
+    })
+    .catch(err => console.error("Capabilities load error:", err));
 
 </script>
 
