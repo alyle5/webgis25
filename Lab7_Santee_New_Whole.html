@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEF GIS Web Map</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Layer Switcher */
+        .layer-switcher {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 10px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+            z-index: 1000;
+            width: 200px;
+        }
+
+        .layer-switcher h3 {
+            margin: 0 0 10px 0;
+            font-size: 17px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 6px;
+        }
+
+        .layer-switcher label {
+            display: block;
+            margin: 6px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Layer Toggle Panel -->
+<div class="layer-switcher">
+    <h3>Map Layers</h3>
+    <label><input type="checkbox" id="boundary" checked> SEF Boundary (100 ft)</label>
+    <label><input type="checkbox" id="roads" checked> SEF Roads</label>
+    <label><input type="checkbox" id="bridges" checked> SEF Bridges</label>
+</div>
+
+<!-- Map Container -->
+<div id="map"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
+<script>
+
+// ===================== MAP SETUP =====================
+const map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.OSM()
+        })
+    ],
+    view: new ol.View({
+        center: ol.proj.fromLonLat([-80.0, 35.0]), // temporary until auto-zoom
+        zoom: 10
+    })
+});
+
+// ===================== WMS LAYER FACTORY =====================
+function makeLayer(layerName) {
+    return new ol.layer.Tile({
+        source: new ol.source.TileWMS({
+            url: "http://3.236.80.74:8080/geoserver/wms",
+            params: {
+                LAYERS: layerName,
+                FORMAT: "image/png",
+                TILED: true,
+                TRANSPARENT: true
+            },
+            serverType: "geoserver"
+        }),
+        visible: true
+    });
+}
+
+// ===================== CREATE LAYERS =====================
+const boundaryLayer = makeLayer("alyle5:sef_boundary_100ft");
+const roadsLayer    = makeLayer("alyle5:sef_roads");
+const bridgesLayer  = makeLayer("alyle5:sef_bridges");
+
+// Add to map
+map.addLayer(boundaryLayer);
+map.addLayer(roadsLayer);
+map.addLayer(bridgesLayer);
+
+// ===================== LAYER SWITCHER EVENTS =====================
+document.getElementById("boundary").addEventListener("change", e =>
+    boundaryLayer.setVisible(e.target.checked)
+);
+document.getElementById("roads").addEventListener("change", e =>
+    roadsLayer.setVisible(e.target.checked)
+);
+document.getElementById("bridges").addEventListener("change", e =>
+    bridgesLayer.setVisible(e.target.checked)
+);
+
+// ===================== AUTO-ZOOM TO BOUNDARY LAYER =====================
+fetch("http://3.236.80.74:8080/geoserver/alyle5/wms?service=WMS&request=GetCapabilities")
+    .then(response => response.text())
+    .then(text => {
+        const parser = new ol.format.WMSCapabilities();
+        const result = parser.read(text);
+
+        // find the boundary layer metadata
+        const layers = result.Capability.Layer.Layer;
+        const layerInfo = layers.find(l => l.Name === "alyle5:sef_boundary_100ft");
+
+        if (layerInfo && layerInfo.BoundingBox) {
+            const bbox = layerInfo.BoundingBox[0].extent;
+
+            // transform from EPSG:4326 → EPSG:3857
+            const transformed = ol.proj.transformExtent(
+                bbox,
+                "EPSG:4326",
+                "EPSG:3857"
+            );
+
+            map.getView().fit(transformed, {
+                duration: 1000,
+                padding: [50, 50, 50, 50]
+            });
+        } else {
+            console.error("Could not find bounding box for boundary layer");
+        }
+    })
+    .catch(err => console.error("GetCapabilities error:", err));
+
+</script>
+
+</body>
+</html>
